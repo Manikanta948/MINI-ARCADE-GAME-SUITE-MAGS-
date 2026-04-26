@@ -1,10 +1,178 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<module type="PYTHON_MODULE" version="4">
-  <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$">
-      <excludeFolder url="file://$MODULE_DIR$/.venv" />
-    </content>
-    <orderEntry type="jdk" jdkName="Python 3.14 (PythonProject MINI ARCADE GAME SUITE (MAGS))" jdkType="Python SDK" />
-    <orderEntry type="sourceFolder" forTests="false" />
-  </component>
-</module>
+import random
+import json
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ---------------- PLAYER CLASS ----------------
+class Player:
+    def __init__(self, username):
+        self.username = username
+        self.games_played = 0
+        self.wins = 0
+        self.losses = 0
+
+    def record_win(self):
+        self.games_played += 1
+        self.wins += 1
+
+    def record_loss(self):
+        self.games_played += 1
+        self.losses += 1
+
+    def show_stats(self):
+        print("\n--- Player Stats ---")
+        print("Username:", self.username)
+        print("Games Played:", self.games_played)
+        print("Wins:", self.wins)
+        print("Losses:", self.losses)
+
+
+# ---------------- STORAGE ----------------
+def save_profile(player):
+    os.makedirs("profiles", exist_ok=True)
+    file = f"profiles/{player.username}.json"
+    with open(file, "w") as f:
+        json.dump(player.__dict__, f)
+
+def load_profile(username):
+    file = f"profiles/{username}.json"
+    try:
+        with open(file) as f:
+            data = json.load(f)
+            p = Player(data["username"])
+            p.__dict__.update(data)
+            return p
+    except:
+        return None
+
+
+# ---------------- UTIL ----------------
+def safe_input(msg):
+    return input(msg).strip()
+
+
+# ---------------- GAMES ----------------
+def start_guessing_game(player):
+    number = random.randint(1, 10)
+    attempts = 3
+
+    while attempts > 0:
+        try:
+            guess = int(input("Guess number (1-10): "))
+        except:
+            print("Invalid input")
+            continue
+
+        if guess == number:
+            print(" Correct! You win!")
+            player.record_win()
+            return
+        elif guess < number:
+            print("Too Low")
+        else:
+            print("Too High")
+
+        attempts -= 1
+
+    print("You lost! The correct number was:", number)
+    player.record_loss()
+
+
+def start_hangman_game(player):
+    try:
+        with open("wordlist.txt") as f:
+            words = f.read().splitlines()
+    except:
+        words = ["python", "arcade", "game"]
+
+    word = random.choice(words)
+    guessed = []
+    attempts = 6
+
+    while attempts > 0:
+        display = "".join([c if c in guessed else "_" for c in word])
+        print("\nWord:", display)
+
+        if "_" not in display:
+            print(" You guessed the word!")
+            player.record_win()
+            return
+
+        guess = input("Enter letter: ").lower()
+
+        if guess not in guessed:
+            guessed.append(guess)
+            if guess not in word:
+                attempts -= 1
+                print("Wrong! Attempts left:", attempts)
+
+    print("You lost! The word was:", word)
+    player.record_loss()
+
+
+# ---------------- ANALYTICS ----------------
+def show_analytics(player):
+    data = [{
+        "username": player.username,
+        "games_played": player.games_played,
+        "wins": player.wins,
+        "losses": player.losses
+    }]
+
+    df = pd.DataFrame(data)
+
+    print("\n--- Analytics ---")
+    print(df)
+
+    print("\nAverages:")
+    print("Avg Games:", np.mean(df["games_played"]))
+    print("Avg Wins:", np.mean(df["wins"]))
+
+    # Visualization
+    df.plot(kind="bar", x="username", y="wins")
+    plt.title("Wins Leaderboard")
+    plt.show()
+
+
+# ---------------- MAIN ----------------
+def main():
+    print(" MINI ARCADE")
+
+    username = safe_input("Enter username: ")
+    player = load_profile(username)
+
+    if not player:
+        player = Player(username)
+
+    while True:
+        print("\n1. Guessing Game")
+        print("2. Hangman")
+        print("3. Stats & Analytics")
+        print("4. Exit")
+
+        choice = safe_input("Enter choice: ")
+
+        if choice == "1":
+            start_guessing_game(player)
+
+        elif choice == "2":
+            start_hangman_game(player)
+
+        elif choice == "3":
+            player.show_stats()
+            show_analytics(player)
+
+        elif choice == "4":
+            save_profile(player)
+            print("Data saved. Exiting...")
+            break
+
+        else:
+            print("Invalid choice")
+
+
+# ---------------- RUN ----------------
+if __name__ == "__main__":
+    main()
